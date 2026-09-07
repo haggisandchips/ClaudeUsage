@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _positionSaveTimer;
     private readonly AppSettings _settings;
     private CancellationTokenSource? _pollCts;
+    private Win32TitleBarDragHelper? _win32DragHelper;
 
     // Null until the first successful fetch reports a band, so that fetch itself never
     // fires a "crossed" notification - only a genuine increase after that does.
@@ -78,10 +79,50 @@ public partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
+        if (OperatingSystem.IsWindows())
+        {
+            var handle = TryGetPlatformHandle()?.Handle;
+            if (handle is { } hwnd && hwnd != IntPtr.Zero)
+            {
+                _win32DragHelper = new Win32TitleBarDragHelper(hwnd, IsDraggableClientPoint);
+            }
+        }
+
         RestorePosition();
         RefreshAuthState();
         _timer.Start();
         _ = PollUsageAsync();
+    }
+
+    /// <summary>
+    /// Windows-only: answers Win32TitleBarDragHelper's WM_NCHITTEST query. Point is in
+    /// client-area device pixels; true means "drag the window", false means "ordinary
+    /// content" (so the refresh/settings/close buttons keep receiving real clicks even
+    /// though they sit inside the header row).
+    /// </summary>
+    private bool IsDraggableClientPoint(int clientX, int clientY)
+    {
+        var scale = RenderScaling;
+        var point = new Point(clientX / scale, clientY / scale);
+
+        var headerOrigin = HeaderPanel.TranslatePoint(new Point(0, 0), this) ?? default;
+        var headerRect = new Rect(headerOrigin, HeaderPanel.Bounds.Size);
+        if (!headerRect.Contains(point))
+        {
+            return false;
+        }
+
+        foreach (var button in new[] { RefreshButton, SettingsButton, CloseButton })
+        {
+            var buttonOrigin = button.TranslatePoint(new Point(0, 0), this) ?? default;
+            var buttonRect = new Rect(buttonOrigin, button.Bounds.Size);
+            if (buttonRect.Contains(point))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void OnPositionChanged(object? sender, PixelPointEventArgs e)
@@ -96,6 +137,11 @@ public partial class MainWindow : Window
         _timer.Stop();
         _positionSaveTimer.Stop();
         SavePosition();
+
+        if (OperatingSystem.IsWindows())
+        {
+            _win32DragHelper?.Dispose();
+        }
     }
 
     private void SavePosition()
