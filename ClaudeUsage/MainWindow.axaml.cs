@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using ClaudeUsage.Models;
 using ClaudeUsage.Services;
@@ -146,6 +148,7 @@ public partial class MainWindow : Window
         if (!_usageClient.IsSignedIn && App.TrayIconInstance is { } tray)
         {
             tray.ToolTipText = "Claude Usage — not signed in";
+            tray.Icon = GetTrayStatusIcon(TrayIconNeutral);
         }
     }
 
@@ -280,6 +283,7 @@ public partial class MainWindow : Window
                 Render(result.Usage!);
                 StatusText.Text = $"Updated {DateTime.Now:HH:mm:ss}";
                 UpdateTrayTooltip(result.Usage!);
+                UpdateTrayStatusIcon(result.Usage!);
                 break;
 
             case UsageFetchStatus.RateLimited:
@@ -321,6 +325,48 @@ public partial class MainWindow : Window
 
     private static string FormatPercentOrPlaceholder(double? value) =>
         value is { } v ? $"{Math.Clamp(v, 0, 100):0}%" : "--";
+
+    private const string TrayIconNeutral = "tray-status-neutral.ico";
+    private const string TrayIconGood = "tray-status-good.ico";
+    private const string TrayIconWarn = "tray-status-warn.ico";
+    private const string TrayIconCritical = "tray-status-critical.ico";
+
+    private static readonly Dictionary<string, WindowIcon> TrayStatusIconCache = new();
+
+    /// <summary>
+    /// Recolors the tray icon to match the worse of the two progress bars (same
+    /// thresholds as their fill color), so a glance at the tray shows whether
+    /// you're fine without opening the panel.
+    /// </summary>
+    private static void UpdateTrayStatusIcon(UsageResponse usage)
+    {
+        if (App.TrayIconInstance is not { } tray)
+        {
+            return;
+        }
+
+        var worst = Math.Max(usage.FiveHour?.Utilization ?? 0, usage.SevenDay?.Utilization ?? 0);
+        var fileName = worst switch
+        {
+            >= 80 => TrayIconCritical,
+            >= 50 => TrayIconWarn,
+            _ => TrayIconGood
+        };
+
+        tray.Icon = GetTrayStatusIcon(fileName);
+    }
+
+    private static WindowIcon GetTrayStatusIcon(string fileName)
+    {
+        if (!TrayStatusIconCache.TryGetValue(fileName, out var icon))
+        {
+            using var stream = AssetLoader.Open(new Uri($"avares://ClaudeUsage/Assets/{fileName}"));
+            icon = new WindowIcon(stream);
+            TrayStatusIconCache[fileName] = icon;
+        }
+
+        return icon;
+    }
 
     private static void RenderWindow(UsageWindow? window, TextBlock percentText, ProgressBar bar, TextBlock resetText)
     {

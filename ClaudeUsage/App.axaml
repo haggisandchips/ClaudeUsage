@@ -10,7 +10,7 @@
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon ToolTipText="Claude Usage"
-                      Icon="/Assets/tray-icon.ico"
+                      Icon="/Assets/tray-status-neutral.ico"
                       Clicked="OnTrayIconClicked">
                 <TrayIcon.Menu>
                     <NativeMenu>
