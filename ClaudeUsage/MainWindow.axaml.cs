@@ -108,12 +108,15 @@ public partial class MainWindow : Window
         SettingsStore.Save(_settings);
     }
 
-    /// <summary>Called by the tray icon's "Show panel"/click actions to un-hide the window.</summary>
+    /// <summary>
+    /// Called by the tray icon's "Show panel"/click actions to un-hide the window.
+    /// Polling never stopped while hidden, but this still fetches immediately so the
+    /// panel doesn't show slightly-stale numbers for up to a full poll interval.
+    /// </summary>
     internal void ResumeFromTray()
     {
         Show();
         Activate();
-        _timer.Start();
         _ = PollUsageAsync();
     }
 
@@ -224,8 +227,9 @@ public partial class MainWindow : Window
 
     private void OnCloseClick(object? sender, RoutedEventArgs e)
     {
-        // Pause polling while hidden (saves battery/network); ResumeFromTray restarts it.
-        _timer.Stop();
+        // Polling deliberately keeps running while hidden: the tray icon color/tooltip
+        // and threshold/reset toasts all depend on fresh data even when the panel isn't
+        // open, which is the whole point of those features.
         Hide();
     }
 
