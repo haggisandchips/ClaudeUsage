@@ -1,3 +1,4 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -7,6 +8,13 @@ namespace ClaudeUsage;
 
 public partial class App : Application
 {
+    /// <summary>
+    /// The single tray icon declared in App.axaml, resolved once at startup so other
+    /// parts of the app (e.g. MainWindow, to update the tooltip/icon) can reach it -
+    /// TrayIcon isn't a normal named control, so x:Name doesn't work on it in XAML.
+    /// </summary>
+    internal static TrayIcon? TrayIconInstance { get; private set; }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -16,6 +24,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            TrayIconInstance = TrayIcon.GetIcons(this)?.FirstOrDefault();
             desktop.MainWindow = new MainWindow();
             // The panel is a background utility window; only the tray "Quit" action
             // (or closing it explicitly) should end the process.

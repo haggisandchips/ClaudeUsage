@@ -142,6 +142,11 @@ public partial class MainWindow : Window
     {
         SignedOutPanel.IsVisible = !_usageClient.IsSignedIn;
         SignedInPanel.IsVisible = _usageClient.IsSignedIn;
+
+        if (!_usageClient.IsSignedIn && App.TrayIconInstance is { } tray)
+        {
+            tray.ToolTipText = "Claude Usage — not signed in";
+        }
     }
 
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -274,6 +279,7 @@ public partial class MainWindow : Window
             case UsageFetchStatus.Success:
                 Render(result.Usage!);
                 StatusText.Text = $"Updated {DateTime.Now:HH:mm:ss}";
+                UpdateTrayTooltip(result.Usage!);
                 break;
 
             case UsageFetchStatus.RateLimited:
@@ -299,6 +305,22 @@ public partial class MainWindow : Window
         RenderWindow(usage.FiveHour, SessionPercentText, SessionBar, SessionResetText);
         RenderWindow(usage.SevenDay, WeeklyPercentText, WeeklyBar, WeeklyResetText);
     }
+
+    /// <summary>Lets the numbers be checked at a glance by hovering the tray icon, without opening the panel.</summary>
+    private static void UpdateTrayTooltip(UsageResponse usage)
+    {
+        if (App.TrayIconInstance is not { } tray)
+        {
+            return;
+        }
+
+        var session = FormatPercentOrPlaceholder(usage.FiveHour?.Utilization);
+        var weekly = FormatPercentOrPlaceholder(usage.SevenDay?.Utilization);
+        tray.ToolTipText = $"Claude Usage — Session {session} · Weekly {weekly}";
+    }
+
+    private static string FormatPercentOrPlaceholder(double? value) =>
+        value is { } v ? $"{Math.Clamp(v, 0, 100):0}%" : "--";
 
     private static void RenderWindow(UsageWindow? window, TextBlock percentText, ProgressBar bar, TextBlock resetText)
     {
