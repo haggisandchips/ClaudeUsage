@@ -48,7 +48,7 @@ public partial class MainWindow : Window
     // fires a "crossed" notification - only a genuine increase after that does.
     private int? _lastSessionBand;
     private int? _lastWeeklyBand;
-    private DateTimeOffset? _lastSessionResetsAt;
+    private double? _lastSessionUtilization;
 
     public MainWindow()
     {
@@ -519,23 +519,33 @@ public partial class MainWindow : Window
     };
 
     /// <summary>
-    /// Fires an OS-level notification the moment the 5-hour session window actually rolls
-    /// over (its resets_at timestamp advances to a new value), rather than guessing from a
-    /// drop in utilization.
+    /// Fires an OS-level notification when session usage is observed to have gone DOWN
+    /// between two consecutive polls - the only reliable signal that a genuine reset just
+    /// happened. resets_at looked like a fixed deadline but apparently isn't one (it seems
+    /// to get recalculated/slide forward server-side as time passes rather than staying
+    /// put until an actual reset), so comparing it fired on nearly every poll instead of
+    /// only on real resets. Utilization, by contrast, can only ever decrease via an actual
+    /// reset - it just accumulates otherwise - so this can't misfire the same way.
+    ///
+    /// Never fires on the very first observation after launch (no prior value to compare
+    /// against - startup usage being low isn't itself a "reset"), and fires at most once
+    /// per genuine reset: after firing, the new lower value becomes the baseline, so
+    /// ordinary usage climbing back up afterward can't trigger it again until the next
+    /// real drop.
     /// </summary>
     private void CheckSessionResetNotification(UsageResponse usage)
     {
-        if (usage.FiveHour?.ResetsAt is not { } next)
+        if (usage.FiveHour?.Utilization is not { } current)
         {
             return;
         }
 
-        if (_lastSessionResetsAt is { } previous && next > previous)
+        if (_lastSessionUtilization is { } previous && current < previous)
         {
             OsNotificationService.Show("Session limit reset", "Your 5-hour session usage has reset.");
         }
 
-        _lastSessionResetsAt = next;
+        _lastSessionUtilization = current;
     }
 
     /// <summary>Lets the numbers be checked at a glance by hovering the tray icon, without opening the panel.</summary>
