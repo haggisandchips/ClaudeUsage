@@ -11,6 +11,7 @@
         <NumericUpDown x:Name="IntervalBox"
                         Minimum="1" Maximum="60" Increment="1"
                         FormatString="0" />
+        <CheckBox x:Name="LaunchAtLoginBox" Content="Launch at login" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="Cancel" Click="OnCancel" />
             <Button x:Name="SaveButton" Content="Save" Click="OnSave" IsDefault="True" />

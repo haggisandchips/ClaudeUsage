@@ -9,6 +9,7 @@ internal sealed class AppSettings
     public double? WindowX { get; set; }
     public double? WindowY { get; set; }
     public int? PollIntervalSeconds { get; set; }
+    public bool? LaunchAtLogin { get; set; }
 }
 
 internal static class SettingsStore

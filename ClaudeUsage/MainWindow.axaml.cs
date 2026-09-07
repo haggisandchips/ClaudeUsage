@@ -179,17 +179,24 @@ public partial class MainWindow : Window
     private async void OnSettingsClick(object? sender, RoutedEventArgs e)
     {
         var currentSeconds = _settings.PollIntervalSeconds ?? DefaultPollIntervalSeconds;
-        var dialog = new SettingsDialog(currentSeconds);
+        var currentLaunchAtLogin = _settings.LaunchAtLogin ?? false;
+        var dialog = new SettingsDialog(currentSeconds, currentLaunchAtLogin);
         await dialog.ShowDialog(this);
 
         if (dialog.Succeeded)
         {
             _settings.PollIntervalSeconds = dialog.ResultIntervalSeconds;
+            _settings.LaunchAtLogin = dialog.ResultLaunchAtLogin;
             SettingsStore.Save(_settings);
 
             _timer.Stop();
             _timer.Interval = TimeSpan.FromSeconds(dialog.ResultIntervalSeconds);
             _timer.Start();
+
+            if (LoginItemService.IsSupported)
+            {
+                LoginItemService.SetEnabled(dialog.ResultLaunchAtLogin);
+            }
         }
     }
 
