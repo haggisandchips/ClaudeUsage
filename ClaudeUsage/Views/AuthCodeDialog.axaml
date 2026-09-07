@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ClaudeUsage.Views.AuthCodeDialog"
+        Title="Sign in to Claude"
+        Width="420" Height="200"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="Full">
+    <StackPanel Margin="20" Spacing="10">
+        <TextBlock TextWrapping="Wrap"
+                   Text="A browser window opened for you to sign in and approve access. After approving, Anthropic will show you a code - paste it below." />
+        <TextBox x:Name="CodeBox" PlaceholderText="Paste code here" />
+        <TextBlock x:Name="ErrorText" Foreground="IndianRed" TextWrapping="Wrap" IsVisible="False" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Click="OnCancel" />
+            <Button x:Name="SubmitButton" Content="Sign in" Click="OnSubmit" IsDefault="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

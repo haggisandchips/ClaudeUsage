@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ClaudeUsage.Views.SettingsDialog"
+        Title="Claude Usage Settings"
+        Width="320" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="Full">
+    <StackPanel Margin="20" Spacing="10">
+        <TextBlock Text="Poll interval (minutes)" />
+        <NumericUpDown x:Name="IntervalBox"
+                        Minimum="1" Maximum="60" Increment="1"
+                        FormatString="0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Click="OnCancel" />
+            <Button x:Name="SaveButton" Content="Save" Click="OnSave" IsDefault="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

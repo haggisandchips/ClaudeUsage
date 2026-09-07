@@ -1,0 +1,19 @@
+# Build outputs
+bin/
+obj/
+publish/
+publish-test/
+release/
+release-test/
+Releases/
+Assets/app-icon.icns
+
+# IDE / editor
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS cruft
+.DS_Store
+Thumbs.db

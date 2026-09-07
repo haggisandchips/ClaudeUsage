@@ -1,0 +1,134 @@
+name: Release
+
+# Triggered by pushing a tag like "v1.2.3". Builds a Velopack installer for Windows
+# (win-x64) and macOS Apple Silicon (osx-arm64), then publishes both as assets on a
+# GitHub Release for that tag.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Determine version from tag
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        run: >
+          dotnet publish ClaudeUsage/ClaudeUsage.csproj
+          -c Release -r win-x64 --self-contained true
+          -o publish/win-x64
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Package installer
+        run: >
+          vpk pack
+          -u ClaudeUsage
+          -v ${{ steps.get-version.outputs.version }}
+          -p publish/win-x64
+          -e ClaudeUsage.exe
+          --packTitle "Claude Usage"
+          --packAuthors "Ivor Potter"
+          -i ClaudeUsage/Assets/tray-icon.ico
+          -o release/win
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: release/win/*
+
+  build-macos:
+    runs-on: macos-latest # Apple Silicon (arm64) hosted runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Determine version from tag
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        run: >
+          dotnet publish ClaudeUsage/ClaudeUsage.csproj
+          -c Release -r osx-arm64 --self-contained true
+          -o publish/osx-arm64
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Build .icns from the iconset
+        # ClaudeUsage/Assets/AppIcon.iconset holds pre-rendered PNGs at every size Apple
+        # requires (generated on Windows, since System.Drawing can't render on macOS);
+        # iconutil just packs them into one file - no image generation happens here.
+        run: >
+          iconutil -c icns ClaudeUsage/Assets/AppIcon.iconset
+          -o ClaudeUsage/Assets/app-icon.icns
+
+      - name: Package installer
+        # Unsigned/unnotarized build: first launch requires right-click > Open
+        # (or `xattr -d com.apple.quarantine`) since there's no Apple Developer
+        # certificate configured. See --signAppIdentity/--notaryProfile in vpk's
+        # docs if that gets added later.
+        run: >
+          vpk pack
+          -u ClaudeUsage
+          -v ${{ steps.get-version.outputs.version }}
+          -p publish/osx-arm64
+          -e ClaudeUsage
+          --packTitle "Claude Usage"
+          --packAuthors "Ivor Potter"
+          --bundleId com.ivorpotter.claudeusage
+          -i ClaudeUsage/Assets/app-icon.icns
+          -o release/osx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: release/osx/*
+
+  publish-release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: artifacts/windows
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: artifacts/macos
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create "${{ github.ref_name }}"
+          artifacts/windows/* artifacts/macos/*
+          --repo "${{ github.repository }}"
+          --title "Claude Usage ${{ github.ref_name }}"
+          --generate-notes

@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="190"
+        x:Class="ClaudeUsage.MainWindow"
+        Title="Claude Usage"
+        Width="300"
+        MinWidth="300" MaxWidth="300"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowDecorations="None"
+        Topmost="True"
+        ShowInTaskbar="False"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="Manual">
+    <Border Background="#EE1E1E24"
+            CornerRadius="10"
+            BorderBrush="#33FFFFFF"
+            BorderThickness="1"
+            Padding="14,10,14,14">
+        <StackPanel Spacing="8">
+
+            <!-- Drag handle / header -->
+            <Grid x:Name="HeaderPanel" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Background="Transparent" PointerPressed="OnHeaderPointerPressed">
+                <Image Grid.Column="0" Source="/Assets/app-icon.png" Width="16" Height="16"
+                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Grid.Column="1" Text="Claude Usage" FontWeight="Bold" Foreground="White" FontSize="13" VerticalAlignment="Center" />
+                <Button Grid.Column="2" x:Name="RefreshButton" Content="&#x21BB;" Click="OnRefreshClick"
+                        ToolTip.Tip="Refresh now"
+                        Width="22" Padding="0" HorizontalContentAlignment="Center" FontSize="12"
+                        Background="Transparent" BorderThickness="0"
+                        Foreground="#AAAAAA" Cursor="Hand" />
+                <Button Grid.Column="3" x:Name="SettingsButton" Content="&#x2699;" Click="OnSettingsClick"
+                        ToolTip.Tip="Settings"
+                        Padding="4,0" FontSize="12" Background="Transparent" BorderThickness="0"
+                        Foreground="#AAAAAA" Cursor="Hand" />
+                <Button Grid.Column="4" x:Name="CloseButton" Content="&#x2715;" Click="OnCloseClick"
+                        ToolTip.Tip="Hide"
+                        Padding="4,0" FontSize="11" Background="Transparent" BorderThickness="0"
+                        Foreground="#AAAAAA" Cursor="Hand" />
+            </Grid>
+
+            <!-- Signed-out state -->
+            <StackPanel x:Name="SignedOutPanel" Spacing="10" IsVisible="False">
+                <TextBlock Text="Not signed in." Foreground="#CCCCCC" FontSize="12" />
+                <Button x:Name="SignInButton" Content="Sign in with Claude" Click="OnSignInClick"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            </StackPanel>
+
+            <!-- Signed-in state -->
+            <StackPanel x:Name="SignedInPanel" Spacing="10" IsVisible="False">
+
+                <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="Session (5h)" Foreground="#DDDDDD" FontSize="12" />
+                        <TextBlock Grid.Column="1" x:Name="SessionPercentText" Text="--%" Foreground="White" FontSize="12" FontWeight="Bold" />
+                    </Grid>
+                    <ProgressBar x:Name="SessionBar" Minimum="0" Maximum="100" Value="0" Height="8" CornerRadius="4" />
+                    <TextBlock x:Name="SessionResetText" Text=" " Foreground="#888888" FontSize="10" />
+                </StackPanel>
+
+                <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="Weekly" Foreground="#DDDDDD" FontSize="12" />
+                        <TextBlock Grid.Column="1" x:Name="WeeklyPercentText" Text="--%" Foreground="White" FontSize="12" FontWeight="Bold" />
+                    </Grid>
+                    <ProgressBar x:Name="WeeklyBar" Minimum="0" Maximum="100" Value="0" Height="8" CornerRadius="4" />
+                    <TextBlock x:Name="WeeklyResetText" Text=" " Foreground="#888888" FontSize="10" />
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" x:Name="StatusText" Text=" " Foreground="#777777" FontSize="10" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" x:Name="SignOutButton" Content="Sign out" Click="OnSignOutClick"
+                            Padding="4,0" FontSize="10" Background="Transparent" BorderThickness="0"
+                            Foreground="#888888" Cursor="Hand" />
+                </Grid>
+            </StackPanel>
+
+        </StackPanel>
+    </Border>
+</Window>
