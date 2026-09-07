@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -37,6 +38,12 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _positionSaveTimer;
     private readonly AppSettings _settings;
     private CancellationTokenSource? _pollCts;
+    private WindowNotificationManager? _notificationManager;
+
+    // Null until the first successful fetch reports a band, so that fetch itself never
+    // fires a "crossed" notification - only a genuine increase after that does.
+    private int? _lastSessionBand;
+    private int? _lastWeeklyBand;
 
     public MainWindow()
     {
@@ -70,6 +77,8 @@ public partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
+        _notificationManager = new WindowNotificationManager(this) { Position = NotificationPosition.TopRight, MaxItems = 3 };
+
         RestorePosition();
         RefreshAuthState();
         _timer.Start();
@@ -291,6 +300,7 @@ public partial class MainWindow : Window
                 StatusText.Text = $"Updated {DateTime.Now:HH:mm:ss}";
                 UpdateTrayTooltip(result.Usage!);
                 UpdateTrayStatusIcon(result.Usage!);
+                CheckThresholdNotifications(result.Usage!);
                 break;
 
             case UsageFetchStatus.RateLimited:
@@ -316,6 +326,50 @@ public partial class MainWindow : Window
         RenderWindow(usage.FiveHour, SessionPercentText, SessionBar, SessionResetText);
         RenderWindow(usage.SevenDay, WeeklyPercentText, WeeklyBar, WeeklyResetText);
     }
+
+    /// <summary>
+    /// Fires an in-app toast the moment session/weekly usage newly crosses into the amber
+    /// or red band (same thresholds as the progress bar colors). Only fires on an upward
+    /// crossing (not every poll while already in that band), and only while the panel is
+    /// visible - the tray icon's own color already covers the "panel is hidden" case.
+    /// </summary>
+    private void CheckThresholdNotifications(UsageResponse usage)
+    {
+        NotifyIfBandIncreased("Session (5h)", usage.FiveHour?.Utilization, ref _lastSessionBand);
+        NotifyIfBandIncreased("Weekly", usage.SevenDay?.Utilization, ref _lastWeeklyBand);
+    }
+
+    private void NotifyIfBandIncreased(string label, double? utilization, ref int? lastBand)
+    {
+        if (utilization is not { } pct)
+        {
+            return;
+        }
+
+        var band = GetBand(pct);
+        var previous = lastBand;
+        lastBand = band;
+
+        if (previous is null || band <= previous || !IsVisible)
+        {
+            return;
+        }
+
+        var (title, type) = band switch
+        {
+            2 => ($"{label} usage is critical", NotificationType.Error),
+            _ => ($"{label} usage is high", NotificationType.Warning)
+        };
+
+        _notificationManager?.Show(new Notification(title, $"Now at {pct:0}%.", type));
+    }
+
+    private static int GetBand(double pct) => pct switch
+    {
+        >= 80 => 2,
+        >= 50 => 1,
+        _ => 0
+    };
 
     /// <summary>Lets the numbers be checked at a glance by hovering the tray icon, without opening the panel.</summary>
     private static void UpdateTrayTooltip(UsageResponse usage)
