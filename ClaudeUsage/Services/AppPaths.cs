@@ -19,10 +19,23 @@ internal static class AppPaths
                 Environment.GetFolderPath(
                     Environment.SpecialFolder.LocalApplicationData,
                     Environment.SpecialFolderOption.Create),
-                "ClaudeUsage");
+                IsRunningInstalled() ? "ClaudeUsage" : "ClaudeUsage-Dev");
             Directory.CreateDirectory(dir);
             return dir;
         }
+    }
+
+    /// <summary>
+    /// Velopack installs land at &lt;LocalAppData&gt;\ClaudeUsage\current\ClaudeUsage.exe;
+    /// a local `dotnet run`/`dotnet build` output never sits in a "current" folder under
+    /// that path. Used to keep local dev/test runs out of the real app's credentials and
+    /// settings entirely, rather than sharing (and risking clobbering) production data.
+    /// </summary>
+    private static bool IsRunningInstalled()
+    {
+        var exeDir = Path.GetDirectoryName(Environment.ProcessPath);
+        return exeDir is not null &&
+               string.Equals(Path.GetFileName(exeDir), "current", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string CredentialsFile => Path.Combine(DataDirectory, "credentials.dat");
