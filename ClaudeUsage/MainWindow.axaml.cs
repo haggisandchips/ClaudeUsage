@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -153,6 +154,7 @@ public partial class MainWindow : Window
     {
         SignedOutPanel.IsVisible = !_usageClient.IsSignedIn;
         SignedInPanel.IsVisible = _usageClient.IsSignedIn;
+        SignOutMenuItem.IsEnabled = _usageClient.IsSignedIn;
 
         if (!_usageClient.IsSignedIn && App.TrayIconInstance is { } tray)
         {
@@ -174,6 +176,14 @@ public partial class MainWindow : Window
         // Pause polling while hidden (saves battery/network); ResumeFromTray restarts it.
         _timer.Stop();
         Hide();
+    }
+
+    private void OnQuitClick(object? sender, RoutedEventArgs e)
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
     }
 
     private void OnRefreshClick(object? sender, RoutedEventArgs e)

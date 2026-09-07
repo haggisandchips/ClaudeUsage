@@ -20,6 +20,13 @@
             BorderBrush="#33FFFFFF"
             BorderThickness="1"
             Padding="14,10,14,14">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem x:Name="SignOutMenuItem" Header="Sign out" Click="OnSignOutClick" />
+                <Separator />
+                <MenuItem Header="Quit" Click="OnQuitClick" />
+            </ContextMenu>
+        </Border.ContextMenu>
         <StackPanel Spacing="8">
 
             <!-- Drag handle / header -->
