@@ -5,6 +5,11 @@
          real WinRT toast APIs (CommunityToolkit.WinUI.Notifications needs that TFM to
          expose anything beyond building toast XML); macOS/generic keep plain net10.0. -->
     <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <!-- Required to even restore/build the net10.0 TFM on a non-Windows CI runner (e.g.
+         the macOS release job): a project multi-targeting any Windows-specific TFM needs
+         this opt-in on non-Windows, since the SDK's cross-targeting orchestration still
+         evaluates the Windows TFM's dependency graph even when only publishing net10.0. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\tray-icon.ico</ApplicationIcon>
