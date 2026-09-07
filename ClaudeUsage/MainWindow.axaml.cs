@@ -68,6 +68,7 @@ public partial class MainWindow : Window
         _positionSaveTimer.Tick += (_, _) =>
         {
             _positionSaveTimer.Stop();
+            SnapToNearestEdgeIfClose();
             SavePosition();
         };
 
@@ -137,17 +138,67 @@ public partial class MainWindow : Window
         }
     }
 
-    private bool IsOnAnyScreen(PixelPoint point)
+    private bool IsOnAnyScreen(PixelPoint point) => FindScreenContaining(point) is not null;
+
+    private Screen? FindScreenContaining(PixelPoint point)
     {
         foreach (var screen in Screens.All)
         {
             if (screen.WorkingArea.Contains(point))
             {
-                return true;
+                return screen;
             }
         }
 
-        return false;
+        return null;
+    }
+
+    private const int EdgeSnapThreshold = 24;
+
+    /// <summary>
+    /// Snaps the panel flush to the nearest screen edge once a drag settles within
+    /// <see cref="EdgeSnapThreshold"/> pixels of it, so it doesn't have to be
+    /// pixel-perfectly placed by hand to sit cleanly in a corner.
+    /// </summary>
+    private void SnapToNearestEdgeIfClose()
+    {
+        var screen = FindScreenContaining(Position) ?? Screens.Primary;
+        if (screen is null)
+        {
+            return;
+        }
+
+        var area = screen.WorkingArea;
+        var scale = RenderScaling;
+        var winWidth = (int)(Width * scale);
+        var winHeight = (int)(Bounds.Height * scale);
+
+        var x = Position.X;
+        var y = Position.Y;
+
+        if (Math.Abs(x - area.X) <= EdgeSnapThreshold)
+        {
+            x = area.X;
+        }
+        else if (Math.Abs(x + winWidth - area.Right) <= EdgeSnapThreshold)
+        {
+            x = area.Right - winWidth;
+        }
+
+        if (Math.Abs(y - area.Y) <= EdgeSnapThreshold)
+        {
+            y = area.Y;
+        }
+        else if (Math.Abs(y + winHeight - area.Bottom) <= EdgeSnapThreshold)
+        {
+            y = area.Bottom - winHeight;
+        }
+
+        var snapped = new PixelPoint(x, y);
+        if (snapped != Position)
+        {
+            Position = snapped;
+        }
     }
 
     private void RefreshAuthState()
