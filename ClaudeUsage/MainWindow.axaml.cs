@@ -153,7 +153,12 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private const int EdgeSnapThreshold = 24;
+    // Wider than a typical "snap zone" because most edges have no hard physical stop for
+    // the cursor to land precisely against: the top edge is trivial to hit exactly (the
+    // cursor is capped at screen Y=0), but the bottom sits above the taskbar (excluded
+    // from WorkingArea) and left/right edges between adjacent monitors have nothing
+    // stopping the cursor from gliding straight past them onto the next screen.
+    private const int EdgeSnapThreshold = 48;
 
     /// <summary>
     /// Snaps the panel flush to the nearest screen edge once a drag settles within
