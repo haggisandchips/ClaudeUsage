@@ -167,17 +167,24 @@ public partial class MainWindow : Window
     /// </summary>
     private void SnapToNearestEdgeIfClose()
     {
-        var screen = FindScreenContaining(Position) ?? Screens.Primary;
+        var scale = RenderScaling;
+        var winWidth = (int)(Width * scale);
+        var winHeight = (int)(Bounds.Height * scale);
+
+        // Resolve the screen from the window's center, not its top-left corner: Position
+        // crosses into the adjacent monitor's coordinate space the instant it passes a
+        // boundary, which - right when approaching that monitor's edge from within it -
+        // flips screen resolution to the wrong monitor and makes every distance check
+        // measure against the wrong WorkingArea, silently defeating the snap. The center
+        // only crosses once the window is genuinely mostly on the next monitor.
+        var center = new PixelPoint(Position.X + winWidth / 2, Position.Y + winHeight / 2);
+        var screen = FindScreenContaining(center) ?? Screens.Primary;
         if (screen is null)
         {
             return;
         }
 
         var area = screen.WorkingArea;
-        var scale = RenderScaling;
-        var winWidth = (int)(Width * scale);
-        var winHeight = (int)(Bounds.Height * scale);
-
         var x = Position.X;
         var y = Position.Y;
 
