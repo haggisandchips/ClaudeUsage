@@ -40,6 +40,10 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _pollCts;
     private Win32TitleBarDragHelper? _win32DragHelper;
 
+    // True between WM_ENTERSIZEMOVE and WM_EXITSIZEMOVE. While true, OnPositionChanged
+    // must not re-arm the quiet-period debounce - see DragEnded's doc comment.
+    private bool _isNativeDragging;
+
     // Null until the first successful fetch reports a band, so that fetch itself never
     // fires a "crossed" notification - only a genuine increase after that does.
     private int? _lastSessionBand;
@@ -85,6 +89,22 @@ public partial class MainWindow : Window
             if (handle is { } hwnd && hwnd != IntPtr.Zero)
             {
                 _win32DragHelper = new Win32TitleBarDragHelper(hwnd, IsDraggableClientPoint);
+
+                // Stop the quiet-period debounce from firing (and reassigning Position)
+                // while Windows' own native drag loop is still active - see DragEnded's
+                // doc comment. It's the authoritative "drag is truly over" signal instead.
+                _win32DragHelper.DragStarted += () =>
+                {
+                    _isNativeDragging = true;
+                    _positionSaveTimer.Stop();
+                };
+                _win32DragHelper.DragEnded += () =>
+                {
+                    _isNativeDragging = false;
+                    _positionSaveTimer.Stop();
+                    SnapToNearestEdgeIfClose();
+                    SavePosition();
+                };
             }
         }
 
@@ -127,6 +147,13 @@ public partial class MainWindow : Window
 
     private void OnPositionChanged(object? sender, PixelPointEventArgs e)
     {
+        if (_isNativeDragging)
+        {
+            // DragEnded (WM_EXITSIZEMOVE) will handle this drag's snap/save authoritatively
+            // once it actually finishes - don't let the debounce race it mid-drag.
+            return;
+        }
+
         // Restart the debounce window on every move; only the final settled position gets saved.
         _positionSaveTimer.Stop();
         _positionSaveTimer.Start();

@@ -23,6 +23,8 @@ internal sealed class Win32TitleBarDragHelper : IDisposable
 {
     private const int GWLP_WNDPROC = -4;
     private const uint WM_NCHITTEST = 0x0084;
+    private const uint WM_ENTERSIZEMOVE = 0x0231;
+    private const uint WM_EXITSIZEMOVE = 0x0232;
     private const long HTCLIENT = 1;
     private const long HTCAPTION = 2;
 
@@ -60,6 +62,20 @@ internal sealed class Win32TitleBarDragHelper : IDisposable
     private readonly Func<int, int, bool> _isDraggableClientPoint;
     private bool _disposed;
 
+    /// <summary>
+    /// Fires exactly when the OS's native move/resize modal loop ends (WM_EXITSIZEMOVE) -
+    /// the authoritative "the drag is truly over" signal. Prefer this over any
+    /// quiet-period/debounce heuristic: a real drag can pause for a while mid-gesture
+    /// (e.g. slowing down right as it nears a snap target) while Windows still has the
+    /// mouse captured, and reassigning Position from a debounce timer during that pause
+    /// fights the OS's own in-progress drag tracking - it doesn't know its notion of
+    /// "where the window started" just changed, so the rest of that drag can glitch.
+    /// </summary>
+    public event Action? DragEnded;
+
+    /// <summary>Fires when the OS's native move/resize modal loop begins (WM_ENTERSIZEMOVE).</summary>
+    public event Action? DragStarted;
+
     /// <param name="isDraggableClientPoint">
     /// Given a point in client-area device pixels, returns whether that point should
     /// behave as a title-bar drag handle rather than ordinary client content.
@@ -80,7 +96,15 @@ internal sealed class Win32TitleBarDragHelper : IDisposable
     {
         var result = CallWindowProc(_originalWndProc, hWnd, msg, wParam, lParam);
 
-        if (msg == WM_NCHITTEST && result.ToInt64() == HTCLIENT)
+        if (msg == WM_ENTERSIZEMOVE)
+        {
+            DragStarted?.Invoke();
+        }
+        else if (msg == WM_EXITSIZEMOVE)
+        {
+            DragEnded?.Invoke();
+        }
+        else if (msg == WM_NCHITTEST && result.ToInt64() == HTCLIENT)
         {
             // lParam packs the cursor's SCREEN position as two signed 16-bit values.
             var raw = lParam.ToInt64();
