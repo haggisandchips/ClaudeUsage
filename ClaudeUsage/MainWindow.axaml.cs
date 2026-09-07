@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     // fires a "crossed" notification - only a genuine increase after that does.
     private int? _lastSessionBand;
     private int? _lastWeeklyBand;
+    private DateTimeOffset? _lastSessionResetsAt;
 
     public MainWindow()
     {
@@ -366,6 +367,7 @@ public partial class MainWindow : Window
                 UpdateTrayTooltip(result.Usage!);
                 UpdateTrayStatusIcon(result.Usage!);
                 CheckThresholdNotifications(result.Usage!);
+                CheckSessionResetNotification(result.Usage!);
                 break;
 
             case UsageFetchStatus.RateLimited:
@@ -435,6 +437,29 @@ public partial class MainWindow : Window
         >= 50 => 1,
         _ => 0
     };
+
+    /// <summary>
+    /// Fires an in-app toast the moment the 5-hour session window actually rolls over
+    /// (its resets_at timestamp advances to a new value), rather than guessing from a
+    /// drop in utilization. Like the threshold toasts, only while the panel is visible.
+    /// </summary>
+    private void CheckSessionResetNotification(UsageResponse usage)
+    {
+        if (usage.FiveHour?.ResetsAt is not { } next)
+        {
+            return;
+        }
+
+        if (_lastSessionResetsAt is { } previous && next > previous && IsVisible)
+        {
+            _notificationManager?.Show(new Notification(
+                "Session limit reset",
+                "Your 5-hour session usage has reset.",
+                NotificationType.Success));
+        }
+
+        _lastSessionResetsAt = next;
+    }
 
     /// <summary>Lets the numbers be checked at a glance by hovering the tray icon, without opening the panel.</summary>
     private static void UpdateTrayTooltip(UsageResponse usage)
