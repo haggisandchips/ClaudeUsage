@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -39,7 +38,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _positionSaveTimer;
     private readonly AppSettings _settings;
     private CancellationTokenSource? _pollCts;
-    private WindowNotificationManager? _notificationManager;
 
     // Null until the first successful fetch reports a band, so that fetch itself never
     // fires a "crossed" notification - only a genuine increase after that does.
@@ -80,8 +78,6 @@ public partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        _notificationManager = new WindowNotificationManager(this) { Position = NotificationPosition.TopRight, MaxItems = 3 };
-
         RestorePosition();
         RefreshAuthState();
         _timer.Start();
@@ -395,10 +391,9 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Fires an in-app toast the moment session/weekly usage newly crosses into the amber
-    /// or red band (same thresholds as the progress bar colors). Only fires on an upward
-    /// crossing (not every poll while already in that band), and only while the panel is
-    /// visible - the tray icon's own color already covers the "panel is hidden" case.
+    /// Fires an OS-level notification the moment session/weekly usage newly crosses into
+    /// the amber or red band (same thresholds as the progress bar colors). Only fires on
+    /// an upward crossing, not every poll while already in that band.
     /// </summary>
     private void CheckThresholdNotifications(UsageResponse usage)
     {
@@ -417,18 +412,18 @@ public partial class MainWindow : Window
         var previous = lastBand;
         lastBand = band;
 
-        if (previous is null || band <= previous || !IsVisible)
+        if (previous is null || band <= previous)
         {
             return;
         }
 
-        var (title, type) = band switch
+        var title = band switch
         {
-            2 => ($"{label} usage is critical", NotificationType.Error),
-            _ => ($"{label} usage is high", NotificationType.Warning)
+            2 => $"{label} usage is critical",
+            _ => $"{label} usage is high"
         };
 
-        _notificationManager?.Show(new Notification(title, $"Now at {pct:0}%.", type));
+        OsNotificationService.Show(title, $"Now at {pct:0}%.");
     }
 
     private static int GetBand(double pct) => pct switch
@@ -439,9 +434,9 @@ public partial class MainWindow : Window
     };
 
     /// <summary>
-    /// Fires an in-app toast the moment the 5-hour session window actually rolls over
-    /// (its resets_at timestamp advances to a new value), rather than guessing from a
-    /// drop in utilization. Like the threshold toasts, only while the panel is visible.
+    /// Fires an OS-level notification the moment the 5-hour session window actually rolls
+    /// over (its resets_at timestamp advances to a new value), rather than guessing from a
+    /// drop in utilization.
     /// </summary>
     private void CheckSessionResetNotification(UsageResponse usage)
     {
@@ -450,12 +445,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_lastSessionResetsAt is { } previous && next > previous && IsVisible)
+        if (_lastSessionResetsAt is { } previous && next > previous)
         {
-            _notificationManager?.Show(new Notification(
-                "Session limit reset",
-                "Your 5-hour session usage has reset.",
-                NotificationType.Success));
+            OsNotificationService.Show("Session limit reset", "Your 5-hour session usage has reset.");
         }
 
         _lastSessionResetsAt = next;

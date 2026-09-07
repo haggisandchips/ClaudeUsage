@@ -1,7 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows gets the -windows10.0 TFM so OsNotificationService.Windows.cs can call
+         real WinRT toast APIs (CommunityToolkit.WinUI.Notifications needs that TFM to
+         expose anything beyond building toast XML); macOS/generic keep plain net10.0. -->
+    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\tray-icon.ico</ApplicationIcon>
@@ -9,6 +12,10 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+    <Compile Remove="Services\OsNotificationService.Windows.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,5 +29,13 @@
     </PackageReference>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
     <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
+    <!-- Overrides CommunityToolkit's own System.Drawing.Common 4.7.0 transitive
+         dependency, which has a known critical RCE vulnerability (GHSA-rxg9-xrhp-64gj,
+         fixed in 4.7.2+). We don't use this package directly. -->
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
 </Project>

@@ -31,8 +31,12 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Publish
+        # -f targets the Windows-specific TFM: that's the only build where
+        # CommunityToolkit.WinUI.Notifications exposes real toast dispatch (WinRT
+        # projections) rather than just XML building - see ClaudeUsage.csproj.
         run: >
           dotnet publish ClaudeUsage/ClaudeUsage.csproj
+          -f net10.0-windows10.0.19041.0
           -c Release -r win-x64 --self-contained true
           -o publish/win-x64
 
@@ -71,8 +75,11 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Publish
+        # -f pins the plain (non-Windows) TFM explicitly, since the project now
+        # multi-targets and publish would otherwise be ambiguous.
         run: >
           dotnet publish ClaudeUsage/ClaudeUsage.csproj
+          -f net10.0
           -c Release -r osx-arm64 --self-contained true
           -o publish/osx-arm64
 
