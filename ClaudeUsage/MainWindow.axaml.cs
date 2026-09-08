@@ -148,6 +148,34 @@ public partial class MainWindow : Window
         RestorePosition();
         _timer.Start();
         _ = PollUsageAsync();
+        _ = CheckForUpdateAsync();
+    }
+
+    /// <summary>
+    /// Checks GitHub Releases once per launch and, if a newer version was downloaded,
+    /// reveals the "Restart to update" menu item and shows a toast - see UpdateService
+    /// for why this never surfaces an error on failure (it just retries next launch).
+    /// </summary>
+    private async Task CheckForUpdateAsync()
+    {
+        var version = await UpdateService.CheckAndDownloadAsync(CancellationToken.None);
+        if (version is null)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            var header = $"Restart to update (v{version})";
+            UpdateMenuItem.Header = header;
+            UpdateMenuItem.IsVisible = true;
+            UpdateSeparator.IsVisible = true;
+            UpdateMenuItem2.Header = header;
+            UpdateMenuItem2.IsVisible = true;
+            UpdateSeparator2.IsVisible = true;
+
+            OsNotificationService.Show("Update ready", $"Claude Usage v{version} downloaded. Restart to install.");
+        });
     }
 
     /// <summary>
@@ -390,6 +418,20 @@ public partial class MainWindow : Window
         {
             desktop.Shutdown();
         }
+    }
+
+    /// <summary>
+    /// Only reachable once CheckForUpdateAsync has already downloaded an update, so this
+    /// applies and restarts unconditionally - it mirrors OnClosing's save-state steps
+    /// first since ApplyAndRestart exits the process immediately, before WindowClosing
+    /// would otherwise get a chance to fire.
+    /// </summary>
+    private void OnUpdateMenuClick(object? sender, RoutedEventArgs e)
+    {
+        _timer.Stop();
+        _positionSaveTimer.Stop();
+        SavePosition();
+        UpdateService.ApplyAndRestart();
     }
 
     private void OnRefreshClick(object? sender, RoutedEventArgs e)

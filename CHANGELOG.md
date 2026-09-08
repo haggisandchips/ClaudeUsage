@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-08
+
+### Added
+
+- Automatic update checks on launch: if a newer version is published to GitHub
+  Releases, it's downloaded in the background and a "Restart to update" option
+  appears in the right-click menu (plus a toast notification) - nothing is applied
+  or restarted without that explicit click.
+
 ## [1.2.0] - 2026-09-08
 
 ### Added

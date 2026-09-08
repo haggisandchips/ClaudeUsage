@@ -33,6 +33,8 @@
                     </MenuItem>
                     <Separator />
                     <MenuItem x:Name="SignOutMenuItem" Header="Sign out" Click="OnSignOutClick" />
+                    <Separator x:Name="UpdateSeparator" IsVisible="False" />
+                    <MenuItem x:Name="UpdateMenuItem" Header="Restart to update" Click="OnUpdateMenuClick" IsVisible="False" />
                     <Separator />
                     <MenuItem Header="Quit" Click="OnQuitClick" />
                 </ContextMenu>
@@ -116,6 +118,8 @@
                     </MenuItem>
                     <Separator />
                     <MenuItem x:Name="SignOutMenuItem2" Header="Sign out" Click="OnSignOutClick" />
+                    <Separator x:Name="UpdateSeparator2" IsVisible="False" />
+                    <MenuItem x:Name="UpdateMenuItem2" Header="Restart to update" Click="OnUpdateMenuClick" IsVisible="False" />
                     <Separator />
                     <MenuItem Header="Quit" Click="OnQuitClick" />
                 </ContextMenu>
