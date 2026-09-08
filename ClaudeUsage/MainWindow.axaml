@@ -183,9 +183,13 @@
                         </Ellipse.Fill>
                     </Ellipse>
 
-                    <TextBlock x:Name="TrafficLightPercentText" Text="--%" FontSize="20" FontWeight="Bold"
-                               Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               IsHitTestVisible="False" />
+                    <!-- Percent on top, remaining session time underneath - both recolored per band in ApplyLightColors -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                        <TextBlock x:Name="TrafficLightPercentText" Text="--%" FontSize="18" FontWeight="Bold"
+                                   Foreground="Black" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="TrafficLightResetText" Text=" " FontSize="13" FontWeight="Bold"
+                                   Foreground="Black" HorizontalAlignment="Center" Margin="0,-1,0,0" />
+                    </StackPanel>
                 </Grid>
             </Grid>
         </Border>

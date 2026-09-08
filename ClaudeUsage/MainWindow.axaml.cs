@@ -590,12 +590,14 @@ public partial class MainWindow : Window
         if (window is null)
         {
             TrafficLightPercentText.Text = "--%";
+            TrafficLightResetText.Text = " ";
             ApplyLightColors(GreenLight);
             return;
         }
 
         var pct = Math.Clamp(window.Utilization, 0, 100);
         TrafficLightPercentText.Text = $"{pct:0}%";
+        TrafficLightResetText.Text = window.ResetsAt is { } resetsAt ? FormatRemaining(resetsAt) : " ";
         ApplyLightColors(pct >= 80 ? RedLight : pct >= 50 ? AmberLight : GreenLight);
     }
 
@@ -606,6 +608,7 @@ public partial class MainWindow : Window
         stops[1].Color = light.Mid;
         stops[2].Color = light.Shadow;
         TrafficLightPercentText.Foreground = light.Text;
+        TrafficLightResetText.Foreground = light.Text;
     }
 
     /// <summary>
@@ -843,21 +846,31 @@ public partial class MainWindow : Window
     private static string FormatRelative(DateTimeOffset resetsAt)
     {
         var delta = resetsAt - DateTimeOffset.UtcNow;
-        if (delta <= TimeSpan.Zero)
-        {
-            return "soon";
-        }
+        return delta <= TimeSpan.Zero ? "soon" : $"in {FormatDuration(delta)}";
+    }
 
+    /// <summary>
+    /// Compact "Xh Ym"-style remaining time shown inside the traffic light - there's no
+    /// room there for FormatRelative's "resets in"/"in" framing.
+    /// </summary>
+    private static string FormatRemaining(DateTimeOffset resetsAt)
+    {
+        var delta = resetsAt - DateTimeOffset.UtcNow;
+        return delta <= TimeSpan.Zero ? "now" : FormatDuration(delta);
+    }
+
+    private static string FormatDuration(TimeSpan delta)
+    {
         if (delta.TotalDays >= 1)
         {
-            return $"in {(int)delta.TotalDays}d {delta.Hours}h";
+            return $"{(int)delta.TotalDays}d {delta.Hours}h";
         }
 
         if (delta.TotalHours >= 1)
         {
-            return $"in {(int)delta.TotalHours}h {delta.Minutes}m";
+            return $"{(int)delta.TotalHours}h {delta.Minutes}m";
         }
 
-        return $"in {delta.Minutes}m";
+        return $"{delta.Minutes}m";
     }
 }

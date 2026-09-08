@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-08
+
+### Added
+
+- The Traffic Light view now shows remaining session time underneath the percentage,
+  sized for readability against the housing's hex-grid texture.
+
 ## [1.1.0] - 2026-09-08
 
 ### Added
