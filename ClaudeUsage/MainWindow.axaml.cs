@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -9,6 +10,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using ClaudeUsage.Models;
@@ -17,9 +19,22 @@ using ClaudeUsage.Views;
 
 namespace ClaudeUsage;
 
+/// <summary>Which panel inside the signed-in state is shown. Persisted via <see cref="AppSettings.SelectedView"/>.</summary>
+internal enum ViewMode
+{
+    Detailed,
+    TrafficLight
+}
+
 public partial class MainWindow : Window
 {
     private const int DefaultPollIntervalSeconds = 60;
+
+    // Kept in sync with the Border widths in MainWindow.axaml - used to compute the
+    // fallback startup position (see RestorePosition) before layout has necessarily run,
+    // so it can't rely on Bounds.Width being settled yet.
+    private const double NormalPanelWidth = 300;
+    private const double TrafficLightPanelWidth = 92;
 
     // U+21BB (clockwise open circle arrow) at rest; U+25B6 (play triangle) while a
     // fetch is in flight, to read as "executing" rather than "idle, click to refresh".
@@ -32,11 +47,25 @@ public partial class MainWindow : Window
     private static readonly IBrush IdleIconBrush = new SolidColorBrush(Color.Parse("#AAAAAA"));
     private static readonly IBrush FetchingGlowBrush = new SolidColorBrush(Color.Parse("#4CAF50"));
 
+    /// <summary>
+    /// Traffic-light lens colors per band: a highlight/mid/shadow triple for the lens's
+    /// radial gradient - deliberately more saturated/luminous than the equivalent
+    /// progress-bar brushes above, so the lens reads as a lit LED rather than a flat
+    /// fill - plus the percent-text color that contrasts best against that band's lens.
+    /// </summary>
+    private static readonly (Color Highlight, Color Mid, Color Shadow, IBrush Text) GreenLight =
+        (Color.Parse("#B9F6CA"), Color.Parse("#00E676"), Color.Parse("#00B248"), Brushes.Black);
+    private static readonly (Color Highlight, Color Mid, Color Shadow, IBrush Text) AmberLight =
+        (Color.Parse("#FFECB3"), Color.Parse("#FFC400"), Color.Parse("#FF8F00"), Brushes.Black);
+    private static readonly (Color Highlight, Color Mid, Color Shadow, IBrush Text) RedLight =
+        (Color.Parse("#FF8A80"), Color.Parse("#FF1744"), Color.Parse("#C4001D"), Brushes.White);
+
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly UsageClient _usageClient;
     private readonly DispatcherTimer _timer;
     private readonly DispatcherTimer _positionSaveTimer;
     private readonly AppSettings _settings;
+    private ViewMode _viewMode;
     private CancellationTokenSource? _pollCts;
     private Win32TitleBarDragHelper? _win32DragHelper;
 
@@ -54,7 +83,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        TrafficLightPanel.Background = CreateNoiseBrush();
+        PopulateHexOverlay();
+
         _settings = SettingsStore.Load();
+        _viewMode = _settings.SelectedView == nameof(ViewMode.TrafficLight) ? ViewMode.TrafficLight : ViewMode.Detailed;
+        ApplyViewMode();
 
         _usageClient = new UsageClient(_http);
         _usageClient.LoadPersistedSession();
@@ -108,8 +142,10 @@ public partial class MainWindow : Window
             }
         }
 
-        RestorePosition();
+        // RefreshAuthState must run first: it settles which panel (and therefore which
+        // width) is visible, which RestorePosition's fallback-position branch depends on.
         RefreshAuthState();
+        RestorePosition();
         _timer.Start();
         _ = PollUsageAsync();
     }
@@ -118,21 +154,27 @@ public partial class MainWindow : Window
     /// Windows-only: answers Win32TitleBarDragHelper's WM_NCHITTEST query. Point is in
     /// client-area device pixels; true means "drag the window", false means "ordinary
     /// content" (so the refresh/settings/close buttons keep receiving real clicks even
-    /// though they sit inside the header row).
+    /// though they sit inside the draggable area). The draggable area is the whole
+    /// traffic-light panel (it has no separate header row to grab) but only the header
+    /// row on the normal panel (dragging from the progress bars would be surprising).
     /// </summary>
     private bool IsDraggableClientPoint(int clientX, int clientY)
     {
         var scale = RenderScaling;
         var point = new Point(clientX / scale, clientY / scale);
 
-        var headerOrigin = HeaderPanel.TranslatePoint(new Point(0, 0), this) ?? default;
-        var headerRect = new Rect(headerOrigin, HeaderPanel.Bounds.Size);
-        if (!headerRect.Contains(point))
+        var (dragArea, buttons) = TrafficLightPanel.IsVisible
+            ? ((Control)TrafficLightPanel, new Control[] { TLRefreshButton, TLSettingsButton, TLCloseButton })
+            : ((Control)HeaderPanel, new Control[] { RefreshButton, SettingsButton, CloseButton });
+
+        var dragOrigin = dragArea.TranslatePoint(new Point(0, 0), this) ?? default;
+        var dragRect = new Rect(dragOrigin, dragArea.Bounds.Size);
+        if (!dragRect.Contains(point))
         {
             return false;
         }
 
-        foreach (var button in new[] { RefreshButton, SettingsButton, CloseButton })
+        foreach (var button in buttons)
         {
             var buttonOrigin = button.TranslatePoint(new Point(0, 0), this) ?? default;
             var buttonRect = new Rect(buttonOrigin, button.Bounds.Size);
@@ -207,9 +249,17 @@ public partial class MainWindow : Window
         var area = Screens.Primary?.WorkingArea;
         if (area is { } bounds)
         {
-            Position = new PixelPoint(bounds.Right - (int)Width - 16, bounds.Y + 16);
+            Position = new PixelPoint(bounds.Right - (int)CurrentPanelWidth - 16, bounds.Y + 16);
         }
     }
+
+    /// <summary>
+    /// The width of whichever panel is (or is about to become) visible. Computed from
+    /// state rather than read from Bounds.Width, because RestorePosition's fallback
+    /// branch can run before layout has necessarily settled after a panel swap.
+    /// </summary>
+    private double CurrentPanelWidth =>
+        _usageClient.IsSignedIn && _viewMode == ViewMode.TrafficLight ? TrafficLightPanelWidth : NormalPanelWidth;
 
     private bool IsOnAnyScreen(PixelPoint point) => FindScreenContaining(point) is not null;
 
@@ -241,7 +291,7 @@ public partial class MainWindow : Window
     private void SnapToNearestEdgeIfClose()
     {
         var scale = RenderScaling;
-        var winWidth = (int)(Width * scale);
+        var winWidth = (int)(Bounds.Width * scale);
         var winHeight = (int)(Bounds.Height * scale);
 
         // Resolve the screen from the window's center, not its top-left corner: Position
@@ -288,15 +338,34 @@ public partial class MainWindow : Window
 
     private void RefreshAuthState()
     {
-        SignedOutPanel.IsVisible = !_usageClient.IsSignedIn;
-        SignedInPanel.IsVisible = _usageClient.IsSignedIn;
-        SignOutMenuItem.IsEnabled = _usageClient.IsSignedIn;
+        var signedIn = _usageClient.IsSignedIn;
+        SignOutMenuItem.IsEnabled = signedIn;
+        SignOutMenuItem2.IsEnabled = signedIn;
+        UpdateActivePanel();
 
-        if (!_usageClient.IsSignedIn && App.TrayIconInstance is { } tray)
+        if (!signedIn && App.TrayIconInstance is { } tray)
         {
             tray.ToolTipText = "Claude Usage — not signed in";
             tray.Icon = GetTrayStatusIcon(TrayIconNeutral);
         }
+    }
+
+    /// <summary>
+    /// Single source of truth for which of the two root panels is showing, combining
+    /// sign-in state and the selected view mode: the compact traffic-light panel only
+    /// ever appears while signed in, so signing out always falls back to the normal one
+    /// regardless of the last-selected view.
+    /// </summary>
+    private void UpdateActivePanel()
+    {
+        var signedIn = _usageClient.IsSignedIn;
+        var showTrafficLight = signedIn && _viewMode == ViewMode.TrafficLight;
+
+        NormalPanel.IsVisible = !showTrafficLight;
+        TrafficLightPanel.IsVisible = showTrafficLight;
+
+        SignedOutPanel.IsVisible = !signedIn;
+        DetailedView.IsVisible = signedIn;
     }
 
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -389,6 +458,35 @@ public partial class MainWindow : Window
         RefreshAuthState();
     }
 
+    private void OnSelectDetailedView(object? sender, RoutedEventArgs e) => SetViewMode(ViewMode.Detailed);
+
+    private void OnSelectTrafficLightView(object? sender, RoutedEventArgs e) => SetViewMode(ViewMode.TrafficLight);
+
+    private void SetViewMode(ViewMode mode)
+    {
+        if (_viewMode == mode)
+        {
+            return;
+        }
+
+        _viewMode = mode;
+        ApplyViewMode();
+        UpdateActivePanel();
+
+        _settings.SelectedView = mode.ToString();
+        SettingsStore.Save(_settings);
+    }
+
+    /// <summary>Syncs the View submenu's radio checkmarks (both copies - see MainWindow.axaml) to _viewMode.</summary>
+    private void ApplyViewMode()
+    {
+        var trafficLight = _viewMode == ViewMode.TrafficLight;
+        DetailedViewMenuItem.IsChecked = !trafficLight;
+        TrafficLightViewMenuItem.IsChecked = trafficLight;
+        DetailedViewMenuItem2.IsChecked = !trafficLight;
+        TrafficLightViewMenuItem2.IsChecked = trafficLight;
+    }
+
     private async Task PollUsageAsync()
     {
         if (!_usageClient.IsSignedIn)
@@ -428,12 +526,18 @@ public partial class MainWindow : Window
     /// </summary>
     private void SetFetchingIndicator(bool isFetching)
     {
-        RefreshButton.Content = isFetching ? RefreshBusyGlyph : RefreshIdleGlyph;
-        RefreshButton.Foreground = isFetching ? FetchingGlowBrush : IdleIconBrush;
-        RefreshButton.Effect = isFetching
-            ? new DropShadowEffect { Color = Color.Parse("#4CAF50"), BlurRadius = 8, OffsetX = 0, OffsetY = 0 }
-            : null;
-        RefreshButton.IsHitTestVisible = !isFetching;
+        var content = isFetching ? RefreshBusyGlyph : RefreshIdleGlyph;
+        var foreground = isFetching ? FetchingGlowBrush : IdleIconBrush;
+
+        foreach (var button in new[] { RefreshButton, TLRefreshButton })
+        {
+            button.Content = content;
+            button.Foreground = foreground;
+            button.Effect = isFetching
+                ? new DropShadowEffect { Color = Color.Parse("#4CAF50"), BlurRadius = 8, OffsetX = 0, OffsetY = 0 }
+                : null;
+            button.IsHitTestVisible = !isFetching;
+        }
     }
 
     private void ApplyResult(UsageFetchResult result)
@@ -473,6 +577,119 @@ public partial class MainWindow : Window
     {
         RenderWindow(usage.FiveHour, SessionPercentText, SessionBar, SessionResetText);
         RenderWindow(usage.SevenDay, WeeklyPercentText, WeeklyBar, WeeklyResetText);
+        RenderTrafficLight(usage.FiveHour);
+    }
+
+    /// <summary>
+    /// Drives the single-light traffic-light view from session (5h) usage only - kept in
+    /// sync regardless of which view is currently visible, so switching views never shows
+    /// stale data while waiting for the next poll.
+    /// </summary>
+    private void RenderTrafficLight(UsageWindow? window)
+    {
+        if (window is null)
+        {
+            TrafficLightPercentText.Text = "--%";
+            ApplyLightColors(GreenLight);
+            return;
+        }
+
+        var pct = Math.Clamp(window.Utilization, 0, 100);
+        TrafficLightPercentText.Text = $"{pct:0}%";
+        ApplyLightColors(pct >= 80 ? RedLight : pct >= 50 ? AmberLight : GreenLight);
+    }
+
+    private void ApplyLightColors((Color Highlight, Color Mid, Color Shadow, IBrush Text) light)
+    {
+        var stops = ((RadialGradientBrush)TrafficLightLens.Fill!).GradientStops;
+        stops[0].Color = light.Highlight;
+        stops[1].Color = light.Mid;
+        stops[2].Color = light.Shadow;
+        TrafficLightPercentText.Foreground = light.Text;
+    }
+
+    /// <summary>
+    /// Generates a small tiled grain texture for the traffic-light housing, so its
+    /// near-black background reads as painted metal/plastic rather than a flat, printer
+    /// -perfect fill. Built once at startup - the tile is small and seeded so every run
+    /// looks the same rather than randomly regenerating on each launch.
+    /// </summary>
+    private static IBrush CreateNoiseBrush()
+    {
+        const int size = 48;
+        const byte baseGray = 22;
+        const int amplitude = 9;
+
+        var bitmap = new WriteableBitmap(new PixelSize(size, size), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        using (var buffer = bitmap.Lock())
+        {
+            var random = new Random(20240613);
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    var offset = y * buffer.RowBytes + x * 4;
+                    var value = (byte)Math.Clamp(baseGray + random.Next(-amplitude, amplitude + 1), 0, 255);
+                    Marshal.WriteByte(buffer.Address, offset, value);
+                    Marshal.WriteByte(buffer.Address, offset + 1, value);
+                    Marshal.WriteByte(buffer.Address, offset + 2, value);
+                    Marshal.WriteByte(buffer.Address, offset + 3, 255);
+                }
+            }
+        }
+
+        return new ImageBrush(bitmap)
+        {
+            TileMode = TileMode.Tile,
+            Stretch = Stretch.None,
+            SourceRect = new RelativeRect(0, 0, size, size, RelativeUnit.Absolute),
+            DestinationRect = new RelativeRect(0, 0, size, size, RelativeUnit.Absolute)
+        };
+    }
+
+    /// <summary>
+    /// Draws a faint honeycomb grid over the lens, echoing the diffuser texture on a real
+    /// LED traffic-light lens. Geometry is static (only the lens's own fill color changes
+    /// per band) so this only needs to run once at startup; MainWindow.axaml clips the
+    /// host Canvas to the lens circle so hexagons never spill past its edge.
+    /// </summary>
+    private void PopulateHexOverlay()
+    {
+        const double diameter = 64;
+        const double hexRadius = 2;
+        var stroke = new SolidColorBrush(Colors.Black, 0.18);
+
+        var hexWidth = Math.Sqrt(3) * hexRadius;
+        var rowSpacing = hexRadius * 1.5;
+        var margin = hexRadius * 2;
+
+        var row = 0;
+        for (var cy = -margin; cy <= diameter + margin; cy += rowSpacing, row++)
+        {
+            var xOffset = row % 2 == 0 ? 0 : hexWidth / 2;
+            for (var cx = -margin + xOffset; cx <= diameter + margin; cx += hexWidth)
+            {
+                var hex = new Avalonia.Controls.Shapes.Path
+                {
+                    Data = new PolylineGeometry(BuildHexPoints(cx, cy, hexRadius), true),
+                    Stroke = stroke,
+                    StrokeThickness = 0.75
+                };
+                TrafficLightHexOverlay.Children.Add(hex);
+            }
+        }
+    }
+
+    private static Point[] BuildHexPoints(double cx, double cy, double r)
+    {
+        var points = new Point[6];
+        for (var i = 0; i < 6; i++)
+        {
+            var angle = Math.PI / 180 * (60 * i - 30);
+            points[i] = new Point(cx + r * Math.Cos(angle), cy + r * Math.Sin(angle));
+        }
+
+        return points;
     }
 
     /// <summary>

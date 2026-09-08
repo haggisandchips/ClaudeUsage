@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-08
+
+### Added
+
+- New "Traffic Light" view: a single light (green/amber/red) reporting session (5h)
+  usage only, sized to take as little screen space as possible. Switch between it and
+  the original Detailed view via the right-click "View" submenu; the chosen view is
+  remembered across restarts.
+
+### Changed
+
+- Removed the "Sign out" button from the panel - it was redundant with the right-click
+  context menu's own "Sign out" item, and freed up room for the new view.
+
 ## [1.0.0] - 2026-09-07
 
 ### Added

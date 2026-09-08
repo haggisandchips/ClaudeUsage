@@ -5,9 +5,7 @@
         mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="190"
         x:Class="ClaudeUsage.MainWindow"
         Title="Claude Usage"
-        Width="300"
-        MinWidth="300" MaxWidth="300"
-        SizeToContent="Height"
+        SizeToContent="WidthAndHeight"
         CanResize="False"
         WindowDecorations="None"
         Topmost="True"
@@ -15,76 +13,182 @@
         TransparencyLevelHint="Transparent"
         Background="Transparent"
         WindowStartupLocation="Manual">
-    <Border Background="#EE1E1E24"
-            CornerRadius="10"
-            BorderBrush="#33FFFFFF"
-            BorderThickness="1"
-            Padding="14,10,14,14">
-        <Border.ContextMenu>
-            <ContextMenu>
-                <MenuItem x:Name="SignOutMenuItem" Header="Sign out" Click="OnSignOutClick" />
-                <Separator />
-                <MenuItem Header="Quit" Click="OnQuitClick" />
-            </ContextMenu>
-        </Border.ContextMenu>
-        <StackPanel Spacing="8">
+    <Panel>
 
-            <!-- Drag handle / header -->
-            <Grid x:Name="HeaderPanel" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Background="Transparent" PointerPressed="OnHeaderPointerPressed">
-                <Image Grid.Column="0" Source="/Assets/app-icon.png" Width="16" Height="16"
-                       VerticalAlignment="Center" Margin="0,0,6,0" />
-                <TextBlock Grid.Column="1" Text="Claude Usage" FontWeight="Bold" Foreground="White" FontSize="13" VerticalAlignment="Center" />
-                <Button Grid.Column="2" x:Name="RefreshButton" Content="&#x21BB;" Click="OnRefreshClick"
-                        ToolTip.Tip="Refresh now"
-                        Width="22" Padding="0" HorizontalContentAlignment="Center" FontSize="12"
-                        Background="Transparent" BorderThickness="0"
-                        Foreground="#AAAAAA" Cursor="Hand" />
-                <Button Grid.Column="3" x:Name="SettingsButton" Content="&#x2699;" Click="OnSettingsClick"
-                        ToolTip.Tip="Settings"
-                        Padding="4,0" FontSize="12" Background="Transparent" BorderThickness="0"
-                        Foreground="#AAAAAA" Cursor="Hand" />
-                <Button Grid.Column="4" x:Name="CloseButton" Content="&#x2715;" Click="OnCloseClick"
-                        ToolTip.Tip="Hide"
-                        Padding="4,0" FontSize="11" Background="Transparent" BorderThickness="0"
-                        Foreground="#AAAAAA" Cursor="Hand" />
-            </Grid>
+        <!-- Normal panel: signed-out state, and the Detailed signed-in view -->
+        <Border x:Name="NormalPanel"
+                Width="300"
+                Background="#EE1E1E24"
+                CornerRadius="10"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                Padding="14,10,14,14">
+            <Border.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="View">
+                        <MenuItem x:Name="DetailedViewMenuItem" Header="Detailed" Click="OnSelectDetailedView"
+                                  ToggleType="Radio" GroupName="ViewMode" IsChecked="True" />
+                        <MenuItem x:Name="TrafficLightViewMenuItem" Header="Traffic Light" Click="OnSelectTrafficLightView"
+                                  ToggleType="Radio" GroupName="ViewMode" />
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem x:Name="SignOutMenuItem" Header="Sign out" Click="OnSignOutClick" />
+                    <Separator />
+                    <MenuItem Header="Quit" Click="OnQuitClick" />
+                </ContextMenu>
+            </Border.ContextMenu>
+            <StackPanel Spacing="8">
 
-            <!-- Signed-out state -->
-            <StackPanel x:Name="SignedOutPanel" Spacing="10" IsVisible="False">
-                <TextBlock Text="Not signed in." Foreground="#CCCCCC" FontSize="12" />
-                <Button x:Name="SignInButton" Content="Sign in with Claude" Click="OnSignInClick"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-            </StackPanel>
-
-            <!-- Signed-in state -->
-            <StackPanel x:Name="SignedInPanel" Spacing="10" IsVisible="False">
-
-                <StackPanel Spacing="2">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="Session (5h)" Foreground="#DDDDDD" FontSize="12" />
-                        <TextBlock Grid.Column="1" x:Name="SessionPercentText" Text="--%" Foreground="White" FontSize="12" FontWeight="Bold" />
-                    </Grid>
-                    <ProgressBar x:Name="SessionBar" Minimum="0" Maximum="100" Value="0" Height="8" CornerRadius="4" />
-                    <TextBlock x:Name="SessionResetText" Text=" " Foreground="#888888" FontSize="10" />
-                </StackPanel>
-
-                <StackPanel Spacing="2">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="Weekly" Foreground="#DDDDDD" FontSize="12" />
-                        <TextBlock Grid.Column="1" x:Name="WeeklyPercentText" Text="--%" Foreground="White" FontSize="12" FontWeight="Bold" />
-                    </Grid>
-                    <ProgressBar x:Name="WeeklyBar" Minimum="0" Maximum="100" Value="0" Height="8" CornerRadius="4" />
-                    <TextBlock x:Name="WeeklyResetText" Text=" " Foreground="#888888" FontSize="10" />
-                </StackPanel>
-
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" x:Name="StatusText" Text=" " Foreground="#777777" FontSize="10" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" x:Name="SignOutButton" Content="Sign out" Click="OnSignOutClick"
-                            Padding="4,0" FontSize="10" Background="Transparent" BorderThickness="0"
-                            Foreground="#888888" Cursor="Hand" />
+                <!-- Drag handle / header -->
+                <Grid x:Name="HeaderPanel" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Background="Transparent" PointerPressed="OnHeaderPointerPressed">
+                    <Image Grid.Column="0" Source="/Assets/app-icon.png" Width="16" Height="16"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Grid.Column="1" Text="Claude Usage" FontWeight="Bold" Foreground="White" FontSize="13" VerticalAlignment="Center" />
+                    <Button Grid.Column="2" x:Name="RefreshButton" Content="&#x21BB;" Click="OnRefreshClick"
+                            ToolTip.Tip="Refresh now"
+                            Width="22" Padding="0" HorizontalContentAlignment="Center" FontSize="12"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#AAAAAA" Cursor="Hand" />
+                    <Button Grid.Column="3" x:Name="SettingsButton" Content="&#x2699;" Click="OnSettingsClick"
+                            ToolTip.Tip="Settings"
+                            Padding="4,0" FontSize="12" Background="Transparent" BorderThickness="0"
+                            Foreground="#AAAAAA" Cursor="Hand" />
+                    <Button Grid.Column="4" x:Name="CloseButton" Content="&#x2715;" Click="OnCloseClick"
+                            ToolTip.Tip="Hide"
+                            Padding="4,0" FontSize="11" Background="Transparent" BorderThickness="0"
+                            Foreground="#AAAAAA" Cursor="Hand" />
                 </Grid>
-            </StackPanel>
 
-        </StackPanel>
-    </Border>
+                <!-- Signed-out state -->
+                <StackPanel x:Name="SignedOutPanel" Spacing="10" IsVisible="False">
+                    <TextBlock Text="Not signed in." Foreground="#CCCCCC" FontSize="12" />
+                    <Button x:Name="SignInButton" Content="Sign in with Claude" Click="OnSignInClick"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                </StackPanel>
+
+                <!-- Signed-in, Detailed view: session + weekly bars -->
+                <StackPanel x:Name="DetailedView" Spacing="10" IsVisible="False">
+
+                    <StackPanel Spacing="2">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Session (5h)" Foreground="#DDDDDD" FontSize="12" />
+                            <TextBlock Grid.Column="1" x:Name="SessionPercentText" Text="--%" Foreground="White" FontSize="12" FontWeight="Bold" />
+                        </Grid>
+                        <ProgressBar x:Name="SessionBar" Minimum="0" Maximum="100" Value="0" Height="8" CornerRadius="4" />
+                        <TextBlock x:Name="SessionResetText" Text=" " Foreground="#888888" FontSize="10" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="2">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Weekly" Foreground="#DDDDDD" FontSize="12" />
+                            <TextBlock Grid.Column="1" x:Name="WeeklyPercentText" Text="--%" Foreground="White" FontSize="12" FontWeight="Bold" />
+                        </Grid>
+                        <ProgressBar x:Name="WeeklyBar" Minimum="0" Maximum="100" Value="0" Height="8" CornerRadius="4" />
+                        <TextBlock x:Name="WeeklyResetText" Text=" " Foreground="#888888" FontSize="10" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="StatusText" Text=" " Foreground="#777777" FontSize="10" />
+                </StackPanel>
+
+            </StackPanel>
+        </Border>
+
+        <!--
+            Traffic-light panel: the whole window IS the housing (no icon/title, no
+            "Updated" timestamp) - reports session (5h) usage only via a single light.
+            Only shown while signed in; signed-out always falls back to NormalPanel.
+        -->
+        <Border x:Name="TrafficLightPanel"
+                IsVisible="False"
+                Width="92"
+                CornerRadius="12"
+                BorderBrush="#FF3A3A3A"
+                BorderThickness="2"
+                Padding="8"
+                PointerPressed="OnHeaderPointerPressed">
+            <Border.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="View">
+                        <MenuItem x:Name="DetailedViewMenuItem2" Header="Detailed" Click="OnSelectDetailedView"
+                                  ToggleType="Radio" GroupName="ViewModeTL" />
+                        <MenuItem x:Name="TrafficLightViewMenuItem2" Header="Traffic Light" Click="OnSelectTrafficLightView"
+                                  ToggleType="Radio" GroupName="ViewModeTL" IsChecked="True" />
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem x:Name="SignOutMenuItem2" Header="Sign out" Click="OnSignOutClick" />
+                    <Separator />
+                    <MenuItem Header="Quit" Click="OnQuitClick" />
+                </ContextMenu>
+            </Border.ContextMenu>
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="8" OffsetX="0" OffsetY="3" Opacity="0.6" />
+            </Border.Effect>
+
+            <!-- Background (a grainy near-black brush) is assigned in code-behind. -->
+            <Grid RowDefinitions="Auto,72" RowSpacing="4">
+
+                <!-- Former title-bar buttons now live inside the housing itself, sized the
+                     same as their normal-view counterparts; the row is Auto-height so it
+                     takes whatever room that natural size needs, keeping them clear of the
+                     light below without being squeezed down to fit an arbitrary row height. -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto" HorizontalAlignment="Right">
+                    <Button Grid.Column="0" x:Name="TLRefreshButton" Content="&#x21BB;" Click="OnRefreshClick"
+                            ToolTip.Tip="Refresh now"
+                            Width="22" Padding="0" HorizontalContentAlignment="Center" FontSize="12"
+                            Background="Transparent" BorderThickness="0"
+                            Foreground="#AAAAAA" Cursor="Hand" />
+                    <Button Grid.Column="1" x:Name="TLSettingsButton" Content="&#x2699;" Click="OnSettingsClick"
+                            ToolTip.Tip="Settings"
+                            Padding="4,0" FontSize="12" Background="Transparent" BorderThickness="0"
+                            Foreground="#AAAAAA" Cursor="Hand" />
+                    <Button Grid.Column="2" x:Name="TLCloseButton" Content="&#x2715;" Click="OnCloseClick"
+                            ToolTip.Tip="Hide"
+                            Padding="4,0" FontSize="11" Background="Transparent" BorderThickness="0"
+                            Foreground="#AAAAAA" Cursor="Hand" />
+                </Grid>
+
+                <!-- The light itself -->
+                <Grid Grid.Row="1" Width="72" Height="72" HorizontalAlignment="Center">
+                    <!-- Recessed bezel the lens sits in -->
+                    <Ellipse Width="72" Height="72" Fill="#FF060606" />
+
+                    <!-- The light itself; color swapped by RenderTrafficLight -->
+                    <Ellipse x:Name="TrafficLightLens" Width="64" Height="64"
+                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush Center="0.32,0.28" GradientOrigin="0.32,0.28" RadiusX="0.85" RadiusY="0.85">
+                                <GradientStop Offset="0" Color="#8CE99A" />
+                                <GradientStop Offset="0.55" Color="#4CAF50" />
+                                <GradientStop Offset="1" Color="#1B5E20" />
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+
+                    <!-- Honeycomb diffuser texture, populated in code-behind and clipped to the lens circle -->
+                    <Canvas x:Name="TrafficLightHexOverlay" Width="64" Height="64"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                        <Canvas.Clip>
+                            <EllipseGeometry Rect="0,0,64,64" />
+                        </Canvas.Clip>
+                    </Canvas>
+
+                    <!-- Glassy highlight, so the lens reads as glass/plastic rather than a flat disc -->
+                    <Ellipse Width="24" Height="14" HorizontalAlignment="Left" VerticalAlignment="Top"
+                             Margin="16,12,0,0" Opacity="0.4" IsHitTestVisible="False">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
+                                <GradientStop Offset="0" Color="#FFFFFFFF" />
+                                <GradientStop Offset="1" Color="#00FFFFFF" />
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+
+                    <TextBlock x:Name="TrafficLightPercentText" Text="--%" FontSize="20" FontWeight="Bold"
+                               Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IsHitTestVisible="False" />
+                </Grid>
+            </Grid>
+        </Border>
+
+    </Panel>
 </Window>

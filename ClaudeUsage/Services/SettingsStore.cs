@@ -10,6 +10,13 @@ internal sealed class AppSettings
     public double? WindowY { get; set; }
     public int? PollIntervalSeconds { get; set; }
     public bool? LaunchAtLogin { get; set; }
+
+    /// <summary>
+    /// Name of the <see cref="ClaudeUsage.ViewMode"/> to restore on startup. Stored as a
+    /// string (rather than the enum) so an unrecognized value from a future/older version
+    /// of the app just falls back to the default instead of failing deserialization.
+    /// </summary>
+    public string? SelectedView { get; set; }
 }
 
 internal static class SettingsStore
