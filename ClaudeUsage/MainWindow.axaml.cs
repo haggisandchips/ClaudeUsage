@@ -77,7 +77,7 @@ public partial class MainWindow : Window
     // fires a "crossed" notification - only a genuine increase after that does.
     private int? _lastSessionBand;
     private int? _lastWeeklyBand;
-    private double? _lastSessionUtilization;
+    private bool _sessionReachedLimit;
 
     public MainWindow()
     {
@@ -773,41 +773,47 @@ public partial class MainWindow : Window
         OsNotificationService.Show(title, $"Now at {pct:0}%.");
     }
 
+    private const double CriticalBandThreshold = 80;
+
     private static int GetBand(double pct) => pct switch
     {
-        >= 80 => 2,
+        >= CriticalBandThreshold => 2,
         >= 50 => 1,
         _ => 0
     };
 
     /// <summary>
-    /// Fires an OS-level notification when session usage is observed to have gone DOWN
-    /// between two consecutive polls - the only reliable signal that a genuine reset just
-    /// happened. resets_at looked like a fixed deadline but apparently isn't one (it seems
-    /// to get recalculated/slide forward server-side as time passes rather than staying
-    /// put until an actual reset), so comparing it fired on nearly every poll instead of
-    /// only on real resets. Utilization, by contrast, can only ever decrease via an actual
-    /// reset - it just accumulates otherwise - so this can't misfire the same way.
+    /// Fires an OS-level notification when a session that had actually reached the usage
+    /// limit is then observed back down near zero - a real reset is the only way that
+    /// combination happens. Reset is only worth a notification once you were up against
+    /// the limit in the first place, so this only arms once utilization has hit the
+    /// "critical" band (same 80% threshold as <see cref="GetBand"/>) and only fires once
+    /// it's back down near zero, then disarms until the next time it climbs back to 80%+.
     ///
-    /// Never fires on the very first observation after launch (no prior value to compare
-    /// against - startup usage being low isn't itself a "reset"), and fires at most once
-    /// per genuine reset: after firing, the new lower value becomes the baseline, so
-    /// ordinary usage climbing back up afterward can't trigger it again until the next
-    /// real drop.
+    /// This intentionally ignores small poll-to-poll dips at ordinary usage levels: the
+    /// undocumented usage API isn't perfectly monotonic (resets_at is already known to
+    /// slide around server-side rather than holding steady), so utilization alone can
+    /// wobble down by a point or two without a real reset happening. Requiring both "was
+    /// actually at the limit" and "now near zero" filters that noise out.
     /// </summary>
     private void CheckSessionResetNotification(UsageResponse usage)
     {
+        const double NearZeroThreshold = 10;
+
         if (usage.FiveHour?.Utilization is not { } current)
         {
             return;
         }
 
-        if (_lastSessionUtilization is { } previous && current < previous)
+        if (current >= CriticalBandThreshold)
+        {
+            _sessionReachedLimit = true;
+        }
+        else if (_sessionReachedLimit && current <= NearZeroThreshold)
         {
             OsNotificationService.Show("Session limit reset", "Your 5-hour session usage has reset.");
+            _sessionReachedLimit = false;
         }
-
-        _lastSessionUtilization = current;
     }
 
     /// <summary>Lets the numbers be checked at a glance by hovering the tray icon, without opening the panel.</summary>

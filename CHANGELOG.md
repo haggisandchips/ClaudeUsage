@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-09
+
+### Fixed
+
+- "Session limit reset" notifications could fire spuriously on an ordinary poll-to-poll
+  dip in reported usage, even nowhere near the limit. The notification now only fires
+  when a session that had actually reached the 80%+ critical band is then seen back down
+  near zero - the only combination a real reset actually produces.
+
 ## [1.3.0] - 2026-09-08
 
 ### Added
